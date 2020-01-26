@@ -4,6 +4,90 @@
 
 #include "./lib/mpc/mpc.h"
 
+typedef struct {
+  enum TypeName { integer_t, char_t } name;
+  size_t size;
+} Type;
+
+typedef struct {
+  char *attribute;
+  Type type;
+} RelationColumn;
+
+typedef struct {
+  char *name;
+  RelationColumn *columns;
+  int columnCount;
+} Relation;
+
+char* typeToString(Type t) {
+  switch (t.name) {
+    case integer_t: return "integer_t";
+    case char_t: return "char_t";
+    default: printf("no such type\n"); exit(1);
+  }
+}
+
+Type getType(mpc_ast_t *astType) {
+  Type t;
+
+  if (astType->children_num == 0) {
+    t.name = integer_t;
+    t.size = 0;
+  } else {
+    t.name = char_t;
+    t.size = atoi(astType->children[1]->contents);
+  }
+
+  return t;
+}
+
+RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns) {
+  mpc_ast_print(astRelationColumns);
+
+  RelationColumn *columns =
+    malloc(sizeof(RelationColumn) * (astRelationColumns->children_num / 2));
+
+  int j = 0;
+
+  for (int i = 1; i < astRelationColumns->children_num; i += 2) {
+    mpc_ast_t *column = astRelationColumns->children[i];
+
+    if (strcmp(column->contents, ")") == 0) break;
+
+    printf("\n\ncolumn\n");
+    mpc_ast_print(column);
+    printf("\n");
+
+    columns[j].attribute = column->children[0]->contents;
+    columns[j].type = getType(column->children[1]);
+    j++;
+  }
+
+  return columns;
+}
+
+void createTable(mpc_ast_t *ast) {
+  printf("in create table\n");
+
+  char *tableName = ast->children[1]->contents;
+  printf("table name: %s\n", tableName);
+
+  RelationColumn *columns = extractRelationColumns(ast->children[2]);
+
+  Relation relation;
+  relation.name = tableName;
+  relation.columns = columns;
+  relation.columnCount = ast->children[2]->children_num / 2 - 1;
+
+  printf("extracted: %s\n", relation.name);
+  printf("\n%d columns\n", relation.columnCount);
+
+  for (int i = 0; i < relation.columnCount; i++) {
+    printf("    %s %s %lu\n", relation.columns[i].attribute, typeToString(relation.columns[i].type), relation.columns[i].type.size);
+  }
+}
+
 /*
  * Main
  */
@@ -68,6 +152,15 @@ int main() {
   mpc_result_t r;
   if (mpc_parse_pipe("<stdin>", stdin, SQL, &r)) {
     mpc_ast_print(r.output);
+    printf("\n\n");
+
+    mpc_ast_t *ast = r.output;
+    if (strcmp(ast->children[0]->tag, "create|>") == 0) {
+      createTable(ast->children[0]);
+    } else {
+      printf("not implemented: %s\n", ast->children[0]->tag);
+    }
+
     mpc_ast_delete(r.output);
   } else {
     mpc_err_print(r.error);
