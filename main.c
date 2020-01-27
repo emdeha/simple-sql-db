@@ -177,6 +177,10 @@ int main() {
   mpc_parser_t *Type = mpc_new("type");
   mpc_parser_t *TypeChar = mpc_new("type_char");
 
+  mpc_parser_t *Insert = mpc_new("insert");
+  mpc_parser_t *Values = mpc_new("values");
+  mpc_parser_t *Value = mpc_new("value");
+
   mpc_parser_t *Query = mpc_new("query");
   mpc_parser_t *Select = mpc_new("select");
   mpc_parser_t *From = mpc_new("from");
@@ -187,7 +191,7 @@ int main() {
   mpc_parser_t *Pattern = mpc_new("pattern");
 
   mpca_lang(MPCA_LANG_DEFAULT,
-    " sql : (<create> | <query>) ';' ;                                      "
+    " sql : (<create> | <query> | <insert>) ';' ;                           "
     "                                                                       "
     " create : \"create table\" <table_name> <table_data> ; "
     " "
@@ -197,10 +201,20 @@ int main() {
     " "
     " column : <attribute> <type> ; "
     " "
-    " type : \"integer\" | \"date\" | <type_char> ; "
+    " type : \"integer\" | <type_char> ; "
     " "
     " type_char : \"char(\" /\\d+/ ')' ; "
     "                                                                       "
+    " insert : \"insert into\" <table_name> \"values\" <values> ; "
+    " "
+    " values : '(' <value>* ')' ',' <values> "
+    "        | '(' <value>* ')' ; "
+    " "
+    " value : /'\\w+'/ ',' <value> "
+    "       | /\\d+/ ',' <value> "
+    "       | /'\\w+'/ "
+    "       | /\\d+/ ; "
+    " "
     " query : \"select\" <select>                            "
     "         \"from\" <from>                                  "
     "         <where> ;                                                     "
@@ -223,6 +237,7 @@ int main() {
     " pattern : /'%?\\w+%?'/;                                               ",
   SQL,
   Create, TableName, TableData, Column, Type, TypeChar,
+  Insert, Values, Value,
   Query, Select, From, Where, Condition, Attribute, Relation, Pattern, NULL);
 
   mpc_result_t r;
@@ -230,6 +245,7 @@ int main() {
     mpc_ast_print(r.output);
     printf("\n\n");
 
+    /*
     ExecutionTree executionTree = createExecutionTree(r.output);
     printf("exec tree done: %i\n", executionTree.operation);
     printf("left: %i\n", executionTree.left->argument.type);
@@ -239,6 +255,7 @@ int main() {
     printf("right: %i\n", executionTree.right->argument.relationColumnData[0].type.name);
 
     executeTree(&executionTree);
+    */
 
     mpc_ast_delete(r.output);
   } else {
@@ -246,8 +263,9 @@ int main() {
     mpc_err_delete(r.error);
   }
 
-  mpc_cleanup(15, SQL,
+  mpc_cleanup(18, SQL,
     Create, TableName, TableData, Column, Type, TypeChar,
+    Insert, Values, Value,
     Query, Select, From, Where, Condition, Attribute, Relation, Pattern);
 
   return 0;
