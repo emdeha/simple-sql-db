@@ -23,7 +23,10 @@ typedef struct {
   ArgType type;
   union {
     char *charData;
-    RelationColumn *relationColumnData;
+    struct {
+      RelationColumn *relationColumnData;
+      int columnNum;
+    };
   };
 } Arg;
 
@@ -50,7 +53,7 @@ Type getType(mpc_ast_t *astType) {
   return t;
 }
 
-RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns) {
+RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns, int *columnNum) {
   RelationColumn *columns =
     malloc(sizeof(RelationColumn) * (astRelationColumns->children_num / 2));
 
@@ -65,6 +68,8 @@ RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns) {
     columns[j].type = getType(column->children[1]);
     j++;
   }
+
+  *columnNum = j;
 
   return columns;
 }
@@ -82,7 +87,9 @@ void fillCreateTableExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_
     } else if (strcmp((*ast)->tag, "table_data|>") == 0) {
       ExecutionTree *right = malloc(sizeof(ExecutionTree));
       right->argument.type = RELATION_DEFINITION;
-      right->argument.relationColumnData = extractRelationColumns(*ast);
+      int columnNum = 0;
+      right->argument.relationColumnData = extractRelationColumns(*ast, &columnNum);
+      right->argument.columnNum = columnNum;
       right->right = NULL;
       right->left = NULL;
 
@@ -129,6 +136,24 @@ void executeCreateTable(ExecutionTree *execTree) {
   assert(execTree->right->argument.type == RELATION_DEFINITION);
 
   printf("asserted\n");
+
+  FILE *fp;
+
+  // TODO: Check if relation already exists. If it does, throw an error.
+  // TODO: Open the file for appending.
+  if ((fp = fopen("./db-data/schema", "w")) == NULL) {
+    fprintf(stderr, "can't open schema file");
+    return;
+  }
+
+  fprintf(fp, "%s\t", execTree->left->argument.charData);
+  for (int i = 0; i < execTree->right->argument.columnNum; i++) {
+    RelationColumn column = execTree->right->argument.relationColumnData[i];
+    fprintf(fp, "%i\t%lu\t%s\t", column.type.name, column.type.size, column.attribute);
+  }
+  fprintf(fp, "\n");
+
+  fclose(fp);
 }
 
 void executeTree(ExecutionTree *execTree) {
@@ -212,8 +237,6 @@ int main() {
     printf("right: %i\n", executionTree.right->argument.type);
     printf("right: %s\n", executionTree.right->argument.relationColumnData[0].attribute);
     printf("right: %i\n", executionTree.right->argument.relationColumnData[0].type.name);
-    printf("right: %s\n", executionTree.right->argument.relationColumnData[1].attribute);
-    printf("right: %i\n", executionTree.right->argument.relationColumnData[1].type.name);
 
     executeTree(&executionTree);
 
