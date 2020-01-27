@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "./lib/mpc/mpc.h"
 
@@ -14,19 +15,26 @@ typedef struct {
   Type type;
 } RelationColumn;
 
-typedef struct {
-  char *name;
-  RelationColumn *columns;
-  int columnCount;
-} Relation;
+typedef enum { CREATE_TABLE, SELECT } Op;
 
-char* typeToString(Type t) {
-  switch (t.name) {
-    case integer_t: return "integer_t";
-    case char_t: return "char_t";
-    default: printf("no such type\n"); exit(1);
-  }
-}
+typedef enum { RELATION_NAME, RELATION_DEFINITION } ArgType;
+
+typedef struct {
+  ArgType type;
+  union {
+    char *charData;
+    RelationColumn *relationColumnData;
+  };
+} Arg;
+
+typedef struct ExecutionTree {
+  union {
+    Op operation;
+    Arg argument;
+  };
+  struct ExecutionTree *left;
+  struct ExecutionTree *right;
+} ExecutionTree;
 
 Type getType(mpc_ast_t *astType) {
   Type t;
@@ -43,8 +51,6 @@ Type getType(mpc_ast_t *astType) {
 }
 
 RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns) {
-  mpc_ast_print(astRelationColumns);
-
   RelationColumn *columns =
     malloc(sizeof(RelationColumn) * (astRelationColumns->children_num / 2));
 
@@ -55,10 +61,6 @@ RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns) {
 
     if (strcmp(column->contents, ")") == 0) break;
 
-    printf("\n\ncolumn\n");
-    mpc_ast_print(column);
-    printf("\n");
-
     columns[j].attribute = column->children[0]->contents;
     columns[j].type = getType(column->children[1]);
     j++;
@@ -67,24 +69,73 @@ RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns) {
   return columns;
 }
 
-void createTable(mpc_ast_t *ast) {
-  printf("in create table\n");
+void fillCreateTableExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_ast_trav_t **trav) {
+  while (*ast != NULL) {
+    if (strcmp((*ast)->tag, "table_name|regex") == 0) {
+      ExecutionTree *left = malloc(sizeof(ExecutionTree));
+      left->argument.type = RELATION_NAME;
+      left->argument.charData = (*ast)->contents;
+      left->right = NULL;
+      left->left = NULL;
 
-  char *tableName = ast->children[1]->contents;
-  printf("table name: %s\n", tableName);
+      execTree->left = left;
+    } else if (strcmp((*ast)->tag, "table_data|>") == 0) {
+      ExecutionTree *right = malloc(sizeof(ExecutionTree));
+      right->argument.type = RELATION_DEFINITION;
+      right->argument.relationColumnData = extractRelationColumns(*ast);
+      right->right = NULL;
+      right->left = NULL;
 
-  RelationColumn *columns = extractRelationColumns(ast->children[2]);
+      execTree->right = right;
+    }
 
-  Relation relation;
-  relation.name = tableName;
-  relation.columns = columns;
-  relation.columnCount = ast->children[2]->children_num / 2 - 1;
+    *ast = mpc_ast_traverse_next(&(*trav));
+  }
+}
 
-  printf("extracted: %s\n", relation.name);
-  printf("\n%d columns\n", relation.columnCount);
+ExecutionTree createExecutionTree(mpc_ast_t *ast) {
+  mpc_ast_trav_t *trav = mpc_ast_traverse_start(ast, mpc_ast_trav_order_pre);
+  mpc_ast_t *ast_next = mpc_ast_traverse_next(&trav);
 
-  for (int i = 0; i < relation.columnCount; i++) {
-    printf("    %s %s %lu\n", relation.columns[i].attribute, typeToString(relation.columns[i].type), relation.columns[i].type.size);
+  ExecutionTree execTree;
+  execTree.left = NULL;
+  execTree.right = NULL;
+
+  while (ast_next != NULL) {
+    if (strcmp(ast_next->tag, "create|>") == 0) {
+      execTree.operation = CREATE_TABLE;
+      fillCreateTableExecutionTree(&execTree, &ast_next, &trav);
+      if (ast_next == NULL) {
+        // fillCreateTableExecutionTree may have reached the end of the
+        // traversal, so we shouldn't push it further
+        break;
+      }
+      ast_next = mpc_ast_traverse_next(&trav);
+    } else {
+      ast_next = mpc_ast_traverse_next(&trav);
+    }
+  }
+
+  mpc_ast_traverse_free(&trav);
+
+  return execTree;
+}
+
+/*
+ * Execution
+ */
+void executeCreateTable(ExecutionTree *execTree) {
+  assert(execTree->left->argument.type == RELATION_NAME);
+  assert(execTree->right->argument.type == RELATION_DEFINITION);
+
+  printf("asserted\n");
+}
+
+void executeTree(ExecutionTree *execTree) {
+  if (execTree->operation == CREATE_TABLE) {
+    executeCreateTable(execTree);
+  } else {
+    printf("Operation not implemented: %i\n", execTree->operation);
   }
 }
 
@@ -154,12 +205,17 @@ int main() {
     mpc_ast_print(r.output);
     printf("\n\n");
 
-    mpc_ast_t *ast = r.output;
-    if (strcmp(ast->children[0]->tag, "create|>") == 0) {
-      createTable(ast->children[0]);
-    } else {
-      printf("not implemented: %s\n", ast->children[0]->tag);
-    }
+    ExecutionTree executionTree = createExecutionTree(r.output);
+    printf("exec tree done: %i\n", executionTree.operation);
+    printf("left: %i\n", executionTree.left->argument.type);
+    printf("left: %s\n", executionTree.left->argument.charData);
+    printf("right: %i\n", executionTree.right->argument.type);
+    printf("right: %s\n", executionTree.right->argument.relationColumnData[0].attribute);
+    printf("right: %i\n", executionTree.right->argument.relationColumnData[0].type.name);
+    printf("right: %s\n", executionTree.right->argument.relationColumnData[1].attribute);
+    printf("right: %i\n", executionTree.right->argument.relationColumnData[1].type.name);
+
+    executeTree(&executionTree);
 
     mpc_ast_delete(r.output);
   } else {
