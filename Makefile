@@ -5,7 +5,7 @@ CFLAGS = -Wall -Wextra -Werror
 
 all: main
 
-main: main.c lib/mpc/mpc.c
+main: main.c lib/mpc/mpc.c core/parser/parser.c
 	$(CC) $(CFLAGS) $^ -g -o main
 
 clean:
