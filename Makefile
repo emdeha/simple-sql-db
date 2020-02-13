@@ -1,14 +1,15 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Werror
+TARGETS = main.c lib/mpc/mpc.c core/parser/parser.c core/execution-tree/execution-tree.c
 
 .PHONY: all clean
 
 all: main
 
-main: main.c lib/mpc/mpc.c core/parser/parser.c
+main: $(TARGETS)
 	$(CC) $(CFLAGS) $^ -g -o main
 
-profile: main.c lib/mpc/mpc.c core/parser/parser.c
+profile: $(TARGETS)
 	$(CC) $(CFLAGS) $^ -O0 -g -o main
 
 clean:
