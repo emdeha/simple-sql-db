@@ -19,12 +19,16 @@ void executeCreateTable(ExecutionTree *execTree, Schema *schema) {
   assert(execTree->left->argument.type == RELATION_NAME);
   assert(execTree->right->argument.type == RELATION_DEFINITION);
 
-  printf("asserted\n");
-  printf("schema %p\n", schema);
+  for (size_t i = 0; i < schema->relationNum; i++) {
+    if (strcmp(schema->relations[i].relationName, execTree->left->argument.charData) == 0) {
+      fprintf(stderr, "schema with the [%s] name already exists\n",
+        schema->relations[i].relationName);
+      return;
+    }
+  }
 
   FILE *fp;
 
-  // TODO: Check if relation already exists. If it does, throw an error.
   // TODO: Open the file for appending.
   // TODO: Get file name from config.
   if ((fp = fopen("./db-data/schema", "w")) == NULL) {
