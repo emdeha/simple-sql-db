@@ -33,13 +33,19 @@ Schema* SSQL_LoadSchema() {
   }
 
   Schema *schema = malloc(sizeof(Schema));
-  schema->relationName = getString(fp);
-  schema->columnNum = getSizeT(fp);
-  schema->relationColumns = malloc(sizeof(RelationColumn) * schema->columnNum);
-  for (size_t i = 0; i < schema->columnNum; i++) {
-    schema->relationColumns[i].type.name = getInt(fp);
-    schema->relationColumns[i].type.size = getSizeT(fp);
-    schema->relationColumns[i].attribute = getString(fp);
+
+  schema->relationNum = getSizeT(fp);
+  schema->relations = malloc(sizeof(Relation) * schema->relationNum);
+  for (size_t relIdx = 0; relIdx < schema->relationNum; relIdx++) {
+    schema->relations[relIdx].relationName = getString(fp);
+    schema->relations[relIdx].columnNum = getSizeT(fp);
+    schema->relations[relIdx].relationColumns =
+      malloc(sizeof(RelationColumn) * schema->relations[relIdx].columnNum);
+    for (size_t colIdx = 0; colIdx < schema->relations[relIdx].columnNum; colIdx++) {
+      schema->relations[relIdx].relationColumns[colIdx].type.name = getInt(fp);
+      schema->relations[relIdx].relationColumns[colIdx].type.size = getSizeT(fp);
+      schema->relations[relIdx].relationColumns[colIdx].attribute = getString(fp);
+    }
   }
 
   fclose(fp);
@@ -48,21 +54,26 @@ Schema* SSQL_LoadSchema() {
 }
 
 void SSQL_PrintSchema(Schema *s) {
-  printf("relationName %s\n", s->relationName);
-  printf("columnNum %lu\n", s->columnNum);
-  for (size_t i = 0; i < s->columnNum; i++) {
-    printf("  column %lu\n", i);
-    printf("    typeName %d\n", s->relationColumns[i].type.name);
-    printf("    typeSize %lu\n", s->relationColumns[i].type.size);
-    printf("    attribute %s\n", s->relationColumns[i].attribute);
+  for (size_t relIdx = 0; relIdx < s->relationNum; relIdx++) {
+    printf("relationName %s\n", s->relations[relIdx].relationName);
+    printf("columnNum %lu\n", s->relations[relIdx].columnNum);
+    for (size_t colIdx = 0; colIdx < s->relations[relIdx].columnNum; colIdx++) {
+      printf("  column %lu\n", colIdx);
+      printf("    typeName %d\n", s->relations[relIdx].relationColumns[colIdx].type.name);
+      printf("    typeSize %lu\n", s->relations[relIdx].relationColumns[colIdx].type.size);
+      printf("    attribute %s\n", s->relations[relIdx].relationColumns[colIdx].attribute);
+    }
   }
 }
 
 void SSQL_CleanUpSchema(Schema *s) {
-  free(s->relationName);
-  for (size_t i = 0; i < s->columnNum; i++) {
-    free(s->relationColumns[i].attribute);
+  for (size_t relIdx = 0; relIdx < s->relationNum; relIdx++) {
+    free(s->relations[relIdx].relationName);
+    for (size_t colIdx = 0; colIdx < s->relations[relIdx].columnNum; colIdx++) {
+      free(s->relations[relIdx].relationColumns[colIdx].attribute);
+    }
+    free(s->relations[relIdx].relationColumns);
   }
-  free(s->relationColumns);
+  free(s->relations);
   free(s);
 }

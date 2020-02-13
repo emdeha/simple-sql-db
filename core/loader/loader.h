@@ -7,6 +7,11 @@ typedef struct {
   char *relationName;
   RelationColumn *relationColumns;
   size_t columnNum;
+} Relation;
+
+typedef struct {
+  Relation *relations;
+  size_t relationNum;
 } Schema;
 
 Schema* SSQL_LoadSchema();

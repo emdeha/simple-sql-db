@@ -24,11 +24,12 @@ int main() {
     printf("right: %s\n", executionTree->right->argument.relationColumnData[0].attribute);
     printf("right: %i\n", executionTree->right->argument.relationColumnData[0].type.name);
 
-    // Schema *s = SSQL_LoadSchema();
-    SSQL_ExecuteTree(executionTree);
+    Schema *s = SSQL_LoadSchema();
+    SSQL_ExecuteTree(executionTree, s);
 
     mpc_ast_delete(r->parseResult.output);
     SSQL_CleanUpExecutionTree(executionTree);
+    SSQL_CleanUpSchema(s);
   } else {
     mpc_err_print(r->parseResult.error);
     mpc_err_delete(r->parseResult.error);

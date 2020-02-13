@@ -15,11 +15,12 @@ void putSizeT(FILE *fp, size_t sizeT) {
   fprintf(fp, "%lu\t", sizeT);
 }
 
-void executeCreateTable(ExecutionTree *execTree) {
+void executeCreateTable(ExecutionTree *execTree, Schema *schema) {
   assert(execTree->left->argument.type == RELATION_NAME);
   assert(execTree->right->argument.type == RELATION_DEFINITION);
 
   printf("asserted\n");
+  printf("schema %p\n", schema);
 
   FILE *fp;
 
@@ -30,6 +31,9 @@ void executeCreateTable(ExecutionTree *execTree) {
     fprintf(stderr, "can't open schema file");
     return;
   }
+
+  // Currently we only support one relation per schema, so we hard-code this
+  putSizeT(fp, 1);
 
   putString(fp, execTree->left->argument.charData);
   putInt(fp, execTree->right->argument.columnNum);
@@ -44,9 +48,9 @@ void executeCreateTable(ExecutionTree *execTree) {
   fclose(fp);
 }
 
-void SSQL_ExecuteTree(ExecutionTree *execTree) {
+void SSQL_ExecuteTree(ExecutionTree *execTree, Schema *schema) {
   if (execTree->operation == CREATE_TABLE) {
-    executeCreateTable(execTree);
+    executeCreateTable(execTree, schema);
   } else {
     printf("Operation not implemented: %i\n", execTree->operation);
   }
