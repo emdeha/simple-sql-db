@@ -2,16 +2,7 @@
 #define SSQL_ExecutionTree_h
 
 #include "../../lib/mpc/mpc.h"
-
-typedef struct {
-  enum TypeName { integer_t, char_t } name;
-  size_t size;
-} Type;
-
-typedef struct {
-  char *attribute;
-  Type type;
-} RelationColumn;
+#include "../relation-column.h"
 
 typedef enum { CREATE_TABLE, SELECT } Op;
 

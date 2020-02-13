@@ -2,6 +2,7 @@
 #include "./core/parser/parser.h"
 #include "./core/execution-tree/execution-tree.h"
 #include "./core/executor/executor.h"
+#include "./core/loader/loader.h"
 
 /*
  * Main
@@ -23,6 +24,7 @@ int main() {
     printf("right: %s\n", executionTree->right->argument.relationColumnData[0].attribute);
     printf("right: %i\n", executionTree->right->argument.relationColumnData[0].type.name);
 
+    // Schema *s = SSQL_LoadSchema();
     SSQL_ExecuteTree(executionTree);
 
     mpc_ast_delete(r->parseResult.output);
