@@ -19,7 +19,9 @@ void executeCreateTable(ExecutionTree *execTree, Schema *schema) {
   assert(execTree->left->argument.type == RELATION_NAME);
   assert(execTree->right->argument.type == RELATION_DEFINITION);
 
+  // TODO: Offload this to the preprocessor
   for (size_t i = 0; i < schema->relationNum; i++) {
+    // Checks whether a schema with the same name already exists
     if (strcmp(schema->relations[i].relationName, execTree->left->argument.charData) == 0) {
       fprintf(stderr, "schema with the [%s] name already exists\n",
         schema->relations[i].relationName);
