@@ -101,18 +101,18 @@ void fillCreateTableExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_
   }
 }
 
-ExecutionTree createExecutionTree(mpc_ast_t *ast) {
+ExecutionTree* createExecutionTree(mpc_ast_t *ast) {
   mpc_ast_trav_t *trav = mpc_ast_traverse_start(ast, mpc_ast_trav_order_pre);
   mpc_ast_t *ast_next = mpc_ast_traverse_next(&trav);
 
-  ExecutionTree execTree;
-  execTree.left = NULL;
-  execTree.right = NULL;
+  ExecutionTree *execTree = malloc(sizeof(ExecutionTree));
+  execTree->left = NULL;
+  execTree->right = NULL;
 
   while (ast_next != NULL) {
     if (strcmp(ast_next->tag, "create|>") == 0) {
-      execTree.operation = CREATE_TABLE;
-      fillCreateTableExecutionTree(&execTree, &ast_next, &trav);
+      execTree->operation = CREATE_TABLE;
+      fillCreateTableExecutionTree(execTree, &ast_next, &trav);
       if (ast_next == NULL) {
         // fillCreateTableExecutionTree may have reached the end of the
         // traversal, so we shouldn't push it further
@@ -127,6 +127,21 @@ ExecutionTree createExecutionTree(mpc_ast_t *ast) {
   mpc_ast_traverse_free(&trav);
 
   return execTree;
+}
+
+void cleanUpExecutionTree(ExecutionTree *execTree) {
+  if (execTree == NULL) {
+    return;
+  }
+
+  cleanUpExecutionTree(execTree->right);
+  cleanUpExecutionTree(execTree->left);
+
+  if (execTree->argument.type == RELATION_DEFINITION) {
+    free(execTree->argument.relationColumnData);
+  }
+
+  free(execTree);
 }
 
 /*
@@ -177,17 +192,18 @@ int main() {
     mpc_ast_print(r->parseResult.output);
     printf("\n\n");
 
-    ExecutionTree executionTree = createExecutionTree(r->parseResult.output);
-    printf("exec tree done: %i\n", executionTree.operation);
-    printf("left: %i\n", executionTree.left->argument.type);
-    printf("left: %s\n", executionTree.left->argument.charData);
-    printf("right: %i\n", executionTree.right->argument.type);
-    printf("right: %s\n", executionTree.right->argument.relationColumnData[0].attribute);
-    printf("right: %i\n", executionTree.right->argument.relationColumnData[0].type.name);
+    ExecutionTree *executionTree = createExecutionTree(r->parseResult.output);
+    printf("exec tree done: %i\n", executionTree->operation);
+    printf("left: %i\n", executionTree->left->argument.type);
+    printf("left: %s\n", executionTree->left->argument.charData);
+    printf("right: %i\n", executionTree->right->argument.type);
+    printf("right: %s\n", executionTree->right->argument.relationColumnData[0].attribute);
+    printf("right: %i\n", executionTree->right->argument.relationColumnData[0].type.name);
 
-    executeTree(&executionTree);
+    executeTree(executionTree);
 
     mpc_ast_delete(r->parseResult.output);
+    cleanUpExecutionTree(executionTree);
   } else {
     mpc_err_print(r->parseResult.error);
     mpc_err_delete(r->parseResult.error);
