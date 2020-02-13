@@ -1,0 +1,47 @@
+# mpc_parse has some memory leaks
+{
+   mpc_parse memory leak
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:_IO_default_pbackfail
+   fun:_IO_sputbackc
+   fun:ungetc
+   fun:mpc_input_unmark
+   fun:mpc_parse_run
+   fun:mpc_parse_input
+   fun:mpc_parse_pipe
+   fun:SSQL_ParserParse
+   fun:main
+}
+
+# mpc_cleanup has some invalid reads
+{
+   mpc_cleanup invalid reads
+   Memcheck:Addr1
+   fun:mpc_undefine_unretained
+   fun:mpc_undefine_unretained
+   fun:mpc_undefine_unretained
+   fun:mpc_undefine_and
+   fun:mpc_undefine_unretained
+   fun:mpc_undefine_and
+   fun:mpc_undefine_unretained
+   fun:mpc_undefine
+   fun:mpc_cleanup
+   fun:SSQL_ParserCleanUp
+   fun:main
+}
+
+# mpc_parse_pipe has some conditional jumps
+{
+   mpc_parse_pipe conditional jumps
+   Memcheck:Cond
+   fun:_IO_sputbackc
+   fun:ungetc
+   fun:mpc_input_unmark
+   fun:mpc_parse_run
+   fun:mpc_parse_input
+   fun:mpc_parse_pipe
+   fun:SSQL_ParserParse
+   fun:main
+}
