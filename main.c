@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "./lib/mpc/mpc.h"
 #include "./core/parser/parser.h"
 #include "./core/execution-tree/execution-tree.h"
