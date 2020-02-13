@@ -37,7 +37,7 @@ typedef struct ExecutionTree {
   struct ExecutionTree *right;
 } ExecutionTree;
 
-ExecutionTree* createExecutionTree(mpc_ast_t *ast);
-void cleanUpExecutionTree(ExecutionTree *execTree);
+ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast);
+void SSQL_CleanUpExecutionTree(ExecutionTree *execTree);
 
 #endif

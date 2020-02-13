@@ -61,7 +61,7 @@ void fillCreateTableExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_
   }
 }
 
-ExecutionTree* createExecutionTree(mpc_ast_t *ast) {
+ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast) {
   mpc_ast_trav_t *trav = mpc_ast_traverse_start(ast, mpc_ast_trav_order_pre);
   mpc_ast_t *ast_next = mpc_ast_traverse_next(&trav);
 
@@ -89,13 +89,13 @@ ExecutionTree* createExecutionTree(mpc_ast_t *ast) {
   return execTree;
 }
 
-void cleanUpExecutionTree(ExecutionTree *execTree) {
+void SSQL_CleanUpExecutionTree(ExecutionTree *execTree) {
   if (execTree == NULL) {
     return;
   }
 
-  cleanUpExecutionTree(execTree->right);
-  cleanUpExecutionTree(execTree->left);
+  SSQL_CleanUpExecutionTree(execTree->right);
+  SSQL_CleanUpExecutionTree(execTree->left);
 
   if (execTree->argument.type == RELATION_DEFINITION) {
     free(execTree->argument.relationColumnData);
