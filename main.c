@@ -21,8 +21,10 @@ int main() {
     printf("left: %i\n", executionTree->left->argument.type);
     printf("left: %s\n", executionTree->left->argument.charData);
     printf("right: %i\n", executionTree->right->argument.type);
-    printf("right: %s\n", executionTree->right->argument.relationColumnData[0].attribute);
-    printf("right: %i\n", executionTree->right->argument.relationColumnData[0].type.name);
+    printf("right: %lu\n", executionTree->right->argument.relationRowData[0].valueNum);
+    for (size_t i = 0; i < executionTree->right->argument.relationRowData[0].valueNum; i++) {
+      printf("right: %d\n", executionTree->right->argument.relationRowData[0].values[i].integer);
+    }
 
     Schema *s = SSQL_LoadSchema();
     SSQL_ExecuteTree(executionTree, s);

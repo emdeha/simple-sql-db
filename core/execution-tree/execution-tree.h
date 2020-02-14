@@ -4,9 +4,22 @@
 #include "../../lib/mpc/mpc.h"
 #include "../relation-column.h"
 
-typedef enum { CREATE_TABLE, SELECT } Op;
+typedef enum { CREATE_TABLE, INSERT_INTO, SELECT } Op;
 
-typedef enum { RELATION_NAME, RELATION_DEFINITION } ArgType;
+typedef enum { RELATION_NAME, RELATION_DEFINITION, RELATION_VALUES } ArgType;
+
+typedef struct {
+  Type type;
+  union {
+    int integer;
+    char *str;
+  };
+} RelationValue;
+
+typedef struct {
+  RelationValue *values;
+  size_t valueNum;
+} RelationRow;
 
 typedef struct {
   ArgType type;
@@ -14,7 +27,12 @@ typedef struct {
     char *charData;
     struct {
       RelationColumn *relationColumnData;
+      // TODO: This should be size_t
       int columnNum;
+    };
+    struct {
+      RelationRow *relationRowData;
+      size_t rowNum;
     };
   };
 } Arg;
