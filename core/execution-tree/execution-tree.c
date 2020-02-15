@@ -39,6 +39,7 @@ void fillCreateTableExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_
   while (*ast != NULL) {
     if (strcmp((*ast)->tag, "table_name|regex") == 0) {
       ExecutionTree *left = malloc(sizeof(ExecutionTree));
+      left->isOperation = 0;
       left->argument.type = RELATION_NAME;
       left->argument.charData = (*ast)->contents;
       left->right = NULL;
@@ -47,6 +48,7 @@ void fillCreateTableExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_
       execTree->left = left;
     } else if (strcmp((*ast)->tag, "table_data|>") == 0) {
       ExecutionTree *right = malloc(sizeof(ExecutionTree));
+      right->isOperation = 0;
       right->argument.type = RELATION_DEFINITION;
       int columnNum = 0;
       right->argument.relationColumnData = extractRelationColumns(*ast, &columnNum);
@@ -151,7 +153,12 @@ RelationValue* extractValuesForRow(
     if (*ast != NULL &&
         strstr((*ast)->tag, "value|") != NULL) {
       // TODO: Determine based on schema
-      value[valueIdx].integer = atoi((*ast)->children[0]->contents);
+      // if we have 'value|regex: <value>', we won't have children
+      if ((*ast)->children_num > 0) {
+        value[valueIdx].integer = atoi((*ast)->children[0]->contents);
+      } else {
+        value[valueIdx].integer = atoi((*ast)->contents);
+      }
       value[valueIdx].type.name = integer_t;
       value[valueIdx].type.size = 0;
       valueIdx++;
@@ -161,7 +168,7 @@ RelationValue* extractValuesForRow(
     }
   }
 
-  *valueNum = valueIdx + 1;
+  *valueNum = valueIdx;
   return value;
 }
 
@@ -179,7 +186,7 @@ RelationRow* extractRelationRows(
     row[rowIdx].valueNum = valueNum;
     rowIdx++;
 
-    while (*ast != NULL ||
+    while (*ast != NULL &&
         strcmp((*ast)->tag, "values|>") != 0) {
       *ast = mpc_ast_traverse_next(&(*trav));
     }
@@ -191,7 +198,7 @@ RelationRow* extractRelationRows(
     }
   }
 
-  *rowNum = rowIdx+1;
+  *rowNum = rowIdx;
   return row;
 }
 
@@ -199,6 +206,7 @@ void fillInsertIntoExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_a
   while (*ast != NULL) {
     if (strcmp((*ast)->tag, "table_name|regex") == 0) {
       ExecutionTree *left = malloc(sizeof(ExecutionTree));
+      left->isOperation = 0;
       left->argument.type = RELATION_NAME;
       left->argument.charData = (*ast)->contents;
       left->right = NULL;
@@ -207,6 +215,7 @@ void fillInsertIntoExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_a
       execTree->left = left;
     } else if (strcmp((*ast)->tag, "values|>") == 0) {
       ExecutionTree *right = malloc(sizeof(ExecutionTree));
+      right->isOperation = 0;
       right->argument.type = RELATION_VALUES;
       size_t rowNum = 0;
       right->argument.relationRowData = extractRelationRows(ast, trav, &rowNum);
@@ -232,6 +241,7 @@ ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast) {
   while (ast_next != NULL) {
     if (strcmp(ast_next->tag, "create|>") == 0) {
       execTree->operation = CREATE_TABLE;
+      execTree->isOperation = 1;
       fillCreateTableExecutionTree(execTree, &ast_next, &trav);
       if (ast_next == NULL) {
         // fillCreateTableExecutionTree may have reached the end of the
@@ -241,6 +251,7 @@ ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast) {
       ast_next = mpc_ast_traverse_next(&trav);
     } else if (strcmp(ast_next->tag, "insert|>") == 0) {
       execTree->operation = INSERT_INTO;
+      execTree->isOperation = 1;
       fillInsertIntoExecutionTree(execTree, &ast_next, &trav);
       if (ast_next == NULL) {
         // fillCreateTableExecutionTree may have reached the end of the
@@ -266,8 +277,31 @@ void SSQL_CleanUpExecutionTree(ExecutionTree *execTree) {
   SSQL_CleanUpExecutionTree(execTree->right);
   SSQL_CleanUpExecutionTree(execTree->left);
 
-  if (execTree->argument.type == RELATION_DEFINITION) {
-    free(execTree->argument.relationColumnData);
+  if (!execTree->isOperation) {
+    Arg arg = execTree->argument;
+
+    switch (arg.type) {
+      case RELATION_DEFINITION:
+        free(arg.relationColumnData);
+        break;
+      case RELATION_NAME:
+        break;
+      case RELATION_VALUES: {
+        for (size_t rowIdx = 0; rowIdx < arg.rowNum; rowIdx++) {
+          for (size_t valueIdx = 0; valueIdx < arg.relationRowData[rowIdx].valueNum; valueIdx++) {
+            if (arg.relationRowData[rowIdx].values[valueIdx].type.name == char_t) {
+              free(arg.relationRowData[rowIdx].values[valueIdx].str);
+            }
+          }
+          free(arg.relationRowData[rowIdx].values);
+        }
+        free(arg.relationRowData);
+        break;
+      }
+      default:
+        fprintf(stderr, "no such arg type %i\n", arg.type);
+        break;
+    }
   }
 
   free(execTree);

@@ -42,6 +42,7 @@ typedef struct ExecutionTree {
     Op operation;
     Arg argument;
   };
+  int isOperation;
   struct ExecutionTree *left;
   struct ExecutionTree *right;
 } ExecutionTree;
