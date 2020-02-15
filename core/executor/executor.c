@@ -54,10 +54,46 @@ void executeCreateTable(ExecutionTree *execTree, Schema *schema) {
   fclose(fp);
 }
 
+void executeInsertInto(ExecutionTree *execTree) {
+  assert(execTree->left->argument.type == RELATION_NAME);
+  assert(execTree->right->argument.type == RELATION_VALUES);
+
+  FILE *fp;
+
+  if ((fp = fopen("./db-data/relations", "a")) == NULL) {
+    fprintf(stderr, "can't open relations file");
+    return;
+  }
+
+  putString(fp, execTree->left->argument.charData);
+  putInt(fp, execTree->right->argument.rowNum);
+
+  for (size_t rowIdx = 0; rowIdx < execTree->right->argument.rowNum; rowIdx++) {
+    RelationRow row = execTree->right->argument.relationRowData[rowIdx];
+    putInt(fp, row.valueNum);
+    for (size_t valueIdx = 0; valueIdx < row.valueNum; valueIdx++) {
+      RelationValue val = row.values[valueIdx];
+      if (val.type.name == integer_t) {
+        putInt(fp, val.integer);
+      } else {
+        putString(fp, val.str);
+      }
+    }
+  }
+
+  fclose(fp);
+}
+
 void SSQL_ExecuteTree(ExecutionTree *execTree, Schema *schema) {
-  if (execTree->operation == CREATE_TABLE) {
-    executeCreateTable(execTree, schema);
-  } else {
-    printf("Operation not implemented: %i\n", execTree->operation);
+  switch (execTree->operation) {
+    case CREATE_TABLE:
+      executeCreateTable(execTree, schema);
+      break;
+    case INSERT_INTO:
+      executeInsertInto(execTree);
+      break;
+    default:
+      fprintf(stderr, "Operation not implemented: %i\n", execTree->operation);
+      break;
   }
 }

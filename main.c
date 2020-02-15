@@ -38,7 +38,7 @@ int main() {
       }
     }
 
-    // SSQL_ExecuteTree(executionTree, s);
+    SSQL_ExecuteTree(executionTree, s);
 
     mpc_ast_delete(r->parseResult.output);
     SSQL_CleanUpExecutionTree(executionTree);
