@@ -3,6 +3,7 @@
 
 #include "../../lib/mpc/mpc.h"
 #include "../relation-column.h"
+#include "../loader/loader.h"
 
 typedef enum { CREATE_TABLE, INSERT_INTO, SELECT } Op;
 
@@ -47,7 +48,7 @@ typedef struct ExecutionTree {
   struct ExecutionTree *right;
 } ExecutionTree;
 
-ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast);
+ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast, Schema *s);
 void SSQL_CleanUpExecutionTree(ExecutionTree *execTree);
 
 #endif

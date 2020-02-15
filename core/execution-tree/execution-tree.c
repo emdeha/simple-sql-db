@@ -138,8 +138,26 @@ void fillCreateTableExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_
     })
   ]
 */
+Relation* findRelationByName(Schema *s, char *relationName) {
+  for (size_t i = 0; i < s->relationNum; i++) {
+    if (strcmp(s->relations[i].relationName, relationName) == 0) {
+      return &s->relations[i];
+    }
+  }
+
+  return NULL;
+}
+
+char* removeQuotes(char *str) {
+  char *noQuotes = malloc(sizeof(char) * strlen(str) - 1);
+  strncpy(noQuotes, str + 1, strlen(str) - 2);
+  noQuotes[strlen(str) - 2] = '\0';
+  return noQuotes;
+}
+
 RelationValue* extractValuesForRow(
-  mpc_ast_t **ast, mpc_ast_trav_t **trav, size_t *valueNum
+  mpc_ast_t **ast, mpc_ast_trav_t **trav, size_t *valueNum,
+  Schema *s, char *relationName
 ) {
   RelationValue *value = malloc(sizeof(RelationValue));
   size_t valueIdx = 0;
@@ -152,15 +170,43 @@ RelationValue* extractValuesForRow(
     }
     if (*ast != NULL &&
         strstr((*ast)->tag, "value|") != NULL) {
-      // TODO: Determine based on schema
-      // if we have 'value|regex: <value>', we won't have children
-      if ((*ast)->children_num > 0) {
-        value[valueIdx].integer = atoi((*ast)->children[0]->contents);
-      } else {
-        value[valueIdx].integer = atoi((*ast)->contents);
+      Relation *relation = findRelationByName(s, relationName);
+      if (!relation) {
+        fprintf(stderr, "no relation with name %s\n", relationName);
+        return NULL;
       }
-      value[valueIdx].type.name = integer_t;
-      value[valueIdx].type.size = 0;
+
+      if (valueIdx >= relation->columnNum) {
+        fprintf(stderr,
+          "valueIdx [%lu] >= columnNum [%lu]\n", valueIdx, relation->columnNum);
+        return NULL;
+      }
+
+      // if we have 'value|regex: <value>', we won't have children
+      char *astValue = (*ast)->children_num > 0
+        ? (*ast)->children[0]->contents
+        : (*ast)->contents;
+
+      switch (relation->relationColumns[valueIdx].type.name) {
+        // TODO: Check if the passed values really correspond to char* and int
+        case integer_t: {
+          value[valueIdx].integer = atoi(astValue);
+          value[valueIdx].type.name = integer_t;
+          value[valueIdx].type.size = 0;
+          break;
+        }
+        case char_t: {
+          value[valueIdx].str = removeQuotes(astValue);
+          value[valueIdx].type.name = char_t;
+          value[valueIdx].type.size = relation->relationColumns[valueIdx].type.size;
+          break;
+        }
+        default:
+          fprintf(stderr,
+            "invalid relation type %i\n", relation->relationColumns[valueIdx].type.name);
+          return NULL;
+      }
+
       valueIdx++;
       value = realloc(value, sizeof(RelationValue) * (valueIdx + 1));
 
@@ -173,7 +219,8 @@ RelationValue* extractValuesForRow(
 }
 
 RelationRow* extractRelationRows(
-  mpc_ast_t **ast, mpc_ast_trav_t **trav, size_t *rowNum
+  mpc_ast_t **ast, mpc_ast_trav_t **trav, size_t *rowNum,
+  Schema *s, char *relationName
 ) {
   RelationRow *row = malloc(sizeof(RelationRow));
   size_t rowIdx = 0;
@@ -182,7 +229,11 @@ RelationRow* extractRelationRows(
 
   while (*ast != NULL) {
     size_t valueNum = 0;
-    row[rowIdx].values = extractValuesForRow(ast, trav, &valueNum);
+    row[rowIdx].values = extractValuesForRow(ast, trav, &valueNum, s, relationName);
+    if (row[rowIdx].values == NULL) {
+      return NULL;
+    }
+
     row[rowIdx].valueNum = valueNum;
     rowIdx++;
 
@@ -202,7 +253,9 @@ RelationRow* extractRelationRows(
   return row;
 }
 
-void fillInsertIntoExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_ast_trav_t **trav) {
+void fillInsertIntoExecutionTree(
+  ExecutionTree *execTree, mpc_ast_t **ast, mpc_ast_trav_t **trav, Schema *s
+) {
   while (*ast != NULL) {
     if (strcmp((*ast)->tag, "table_name|regex") == 0) {
       ExecutionTree *left = malloc(sizeof(ExecutionTree));
@@ -218,7 +271,8 @@ void fillInsertIntoExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_a
       right->isOperation = 0;
       right->argument.type = RELATION_VALUES;
       size_t rowNum = 0;
-      right->argument.relationRowData = extractRelationRows(ast, trav, &rowNum);
+      right->argument.relationRowData =
+        extractRelationRows(ast, trav, &rowNum, s, execTree->left->argument.charData);
       right->argument.rowNum = rowNum;
       right->right = NULL;
       right->left = NULL;
@@ -230,7 +284,7 @@ void fillInsertIntoExecutionTree(ExecutionTree *execTree, mpc_ast_t **ast, mpc_a
   }
 }
 
-ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast) {
+ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast, Schema *s) {
   mpc_ast_trav_t *trav = mpc_ast_traverse_start(ast, mpc_ast_trav_order_pre);
   mpc_ast_t *ast_next = mpc_ast_traverse_next(&trav);
 
@@ -252,7 +306,7 @@ ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast) {
     } else if (strcmp(ast_next->tag, "insert|>") == 0) {
       execTree->operation = INSERT_INTO;
       execTree->isOperation = 1;
-      fillInsertIntoExecutionTree(execTree, &ast_next, &trav);
+      fillInsertIntoExecutionTree(execTree, &ast_next, &trav, s);
       if (ast_next == NULL) {
         // fillCreateTableExecutionTree may have reached the end of the
         // traversal, so we shouldn't push it further
