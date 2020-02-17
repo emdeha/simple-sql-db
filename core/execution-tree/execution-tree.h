@@ -5,9 +5,20 @@
 #include "../relation-column.h"
 #include "../loader/loader.h"
 
-typedef enum { CREATE_TABLE, INSERT_INTO, SELECT } Op;
+typedef enum {
+  CREATE_TABLE,
+  INSERT_INTO,
+  PROJECT,
+  CONDITION
+} Op;
 
-typedef enum { RELATION_NAME, RELATION_DEFINITION, RELATION_VALUES } ArgType;
+typedef enum {
+  RELATION_NAME,
+  RELATION_DEFINITION,
+  RELATION_VALUES,
+  PROJECT_ATTRIBUTES,
+  CONDITION_EXPRESSION
+} ArgType;
 
 typedef struct {
   Type type;
@@ -22,19 +33,49 @@ typedef struct {
   size_t valueNum;
 } RelationRow;
 
+typedef enum {
+  AND,
+  IN,
+  LIKE,
+  EQ
+} ConditionOperand;
+
+// TODO: Add handling for subqueries
+typedef struct ConditionExpression {
+  union {
+    char *attributeName;
+    char *pattern;
+  };
+
+  ConditionOperand op;
+
+  ConditionExpression *left;
+  ConditionExpression *right;
+} ConditionExpression;
+
 typedef struct {
   ArgType type;
   union {
+    // RELATION_NAME
     char *charData;
+    // RELATION_DEFINITION
     struct {
       RelationColumn *relationColumnData;
       // TODO: This should be size_t
       int columnNum;
     };
+    // RELATION_VALUES
     struct {
       RelationRow *relationRowData;
       size_t rowNum;
     };
+    // PROJECT_ATTRIBUTES
+    struct {
+      char **attributesData;
+      size_t attributeNum;
+    };
+    // CONDITION_EXPRESSION
+    ConditionExpression *conditionExpression;
   };
 } Arg;
 

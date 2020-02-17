@@ -16,6 +16,7 @@ int main() {
     mpc_ast_print(r->parseResult.output);
     printf("\n\n");
 
+    /*
     Schema *s = SSQL_LoadSchema();
 
     ExecutionTree *executionTree = SSQL_CreateExecutionTree(r->parseResult.output, s);
@@ -43,6 +44,7 @@ int main() {
     mpc_ast_delete(r->parseResult.output);
     SSQL_CleanUpExecutionTree(executionTree);
     SSQL_CleanUpSchema(s);
+    */
   } else {
     mpc_err_print(r->parseResult.error);
     mpc_err_delete(r->parseResult.error);

@@ -284,6 +284,77 @@ void fillInsertIntoExecutionTree(
   }
 }
 
+/*
+ * Sample tree:
+ *
+ * select a, b from c where a = 0;
+ * >
+ *   query|>
+ *     string:1:1 'select'
+ *     select|>
+ *       attribute|regex:1:8 'a'
+ *       char:1:9 ','
+ *       select|attribute|regex:1:11 'b'
+ *     string:1:13 'from'
+ *     from|relation|regex:1:18 'c'
+ *     where|>
+ *       string:1:20 'where'
+ *       condition|>
+ *         attribute|regex:1:26 'a'
+ *         char:1:28 '='
+ *         attribute|regex:1:30 '0'
+ *   char:1:31 ';'
+ */
+
+void fillQueryExecutionTree(
+  ExecutionTree *execTree, mpc_ast_t **ast, mpc_ast_trav_t **trav
+) {
+  mpc_ast_t *selectChild = NULL;
+  mpc_ast_t *fromChild = NULL;
+  mpc_ast_t *whereChild = NULL;
+
+  for (int i = 0; i < (*ast)->children_num; i++) {
+    if (strcmp((*ast)->children[i]->tag, "select|>") == 0) {
+      selectChild = (*ast)->children[i];
+    }
+    if (strstr((*ast)->children[i]->tag, "from|") != NULL) {
+      fromChild = (*ast)->children[i];
+    }
+    if (strcmp((*ast)->children[i]->tag, "where|>") == 0) {
+      whereChild = (*ast)->children[i];
+    }
+  }
+
+  execTree->isOperation = 1;
+  execTree->operation = PROJECT;
+  execTree->right = NULL;
+
+  execTree->left = malloc(sizeof(ExecutionTree));
+  execTree->left->isOperation = 0;
+  execTree->left->argument.type = PROJECT_ATTRIBUTES;
+  execTree->left->argument.attributesData =
+    extractProjectAttributes(selectChild, &execTree->left->argument.attributesNum);
+  execTree->left->right = NULL;
+
+  execTree->left->left = malloc(sizeof(ExecutionTree));
+  execTree->left->left->isOperation = 1;
+  execTree->left->left->operation = CONDITION;
+  execTree->left->left->right = NULL;
+
+  execTree->left->left->left = malloc(sizeof(ExecutionTree));
+  execTree->left->left->left->isOperation = 0;
+  execTree->left->left->left->argument.type = CONDITION_EXPRESSION;
+  execTree->left->left->left->argument.conditionExpression = extractConditionExpression(whereChild);
+  execTree->left->left->left->right = NULL;
+
+  execTree->left->left->left->left = malloc(sizeof(ExecutionTree));
+  execTree->left->left->left->left->isOperation = 0;
+  execTree->left->left->left->left->argument.type = RELATION_NAME;
+  execTree->left->left->left->left->argument.charData = extractRelation(fromChild);
+  execTree->left->left->left->left->right = NULL;
+  execTree->left->left->left->left->left = NULL;
+}
+
 ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast, Schema *s) {
   mpc_ast_trav_t *trav = mpc_ast_traverse_start(ast, mpc_ast_trav_order_pre);
   mpc_ast_t *ast_next = mpc_ast_traverse_next(&trav);
@@ -308,8 +379,12 @@ ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast, Schema *s) {
       execTree->isOperation = 1;
       fillInsertIntoExecutionTree(execTree, &ast_next, &trav, s);
       if (ast_next == NULL) {
-        // fillCreateTableExecutionTree may have reached the end of the
-        // traversal, so we shouldn't push it further
+        break;
+      }
+      ast_next = mpc_ast_traverse_next(&trav);
+    } else if (strcmp(ast_next->tag, "query|>") == 0) {
+      fillQueryExecutionTree(execTree, &ast_next, &trav);
+      if (ast_next == NULL) {
         break;
       }
       ast_next = mpc_ast_traverse_next(&trav);
