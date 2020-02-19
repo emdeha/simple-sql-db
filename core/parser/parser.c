@@ -19,6 +19,7 @@ Parser* SSQL_ParserInit() {
   mpc_parser_t *From = mpc_new("from");
   mpc_parser_t *Where = mpc_new("where");
   mpc_parser_t *Condition = mpc_new("condition");
+  mpc_parser_t *ConditionBody = mpc_new("condition_body");
   mpc_parser_t *Attribute = mpc_new("attribute");
   mpc_parser_t *Relation = mpc_new("relation");
   mpc_parser_t *Pattern = mpc_new("pattern");
@@ -52,18 +53,17 @@ Parser* SSQL_ParserInit() {
     "         \"from\" <from>                                  "
     "         <where> ;                                                     "
     "                                                                       "
-    " select : <attribute> ',' <select>                                     "
-    "        | <attribute> ;                                                "
+    " select : <attribute> (',' <attribute>)* ;                                     "
     "                                                                       "
-    " from : <relation> ',' <from>                                          "
-    "      | <relation> ;                                                   "
+    " from : <relation> (',' <relation>)* ;                                          "
     "                                                                       "
     " where : \"where\" <condition> ;                         "
     "                                                                       "
-    " condition : <condition> \"and\" <condition>               "
-    "           | <attribute> \"in\" '(' <query> ')'             "
-    "           | <attribute> '=' <attribute>                               "
-    "           | <attribute> \"like\" <pattern>;              "
+    " condition : <condition_body> (\"and\" <condition_body>)* ;               "
+    " "
+    " condition_body: <attribute> \"in\" '(' <query> ')'             "
+    "               | <attribute> '=' <value>                              "
+    "               | <attribute> \"like\" <pattern>;              "
     "                                                                       "
     " attribute : /[a-zA-Z0-9]+/;                                           "
     " relation : /[a-zA-Z]+/;                                               "
@@ -71,11 +71,11 @@ Parser* SSQL_ParserInit() {
   SQL,
   Create, TableName, TableData, Column, Type, TypeChar,
   Insert, Values, Value,
-  Query, Select, From, Where, Condition, Attribute, Relation, Pattern, NULL);
+  Query, Select, From, Where, Condition, ConditionBody, Attribute, Relation, Pattern, NULL);
 
   Parser *p = malloc(sizeof(Parser));
   p->main = SQL;
-  p->parsers = malloc(17 * sizeof(mpc_parser_t*));
+  p->parsers = malloc(18 * sizeof(mpc_parser_t*));
   p->parsers[0] = Create;
   p->parsers[1] = TableName;
   p->parsers[2] = TableData;
@@ -90,11 +90,12 @@ Parser* SSQL_ParserInit() {
   p->parsers[11] = From;
   p->parsers[12] = Where;
   p->parsers[13] = Condition;
-  p->parsers[14] = Attribute;
-  p->parsers[15] = Relation;
-  p->parsers[16] = Pattern;
+  p->parsers[14] = ConditionBody;
+  p->parsers[15] = Attribute;
+  p->parsers[16] = Relation;
+  p->parsers[17] = Pattern;
 
-  p->parsersLength = 17;
+  p->parsersLength = 18;
   return p;
 }
 
