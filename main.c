@@ -16,10 +16,10 @@ int main() {
     mpc_ast_print(r->parseResult.output);
     printf("\n\n");
 
-    /*
     Schema *s = SSQL_LoadSchema();
 
     ExecutionTree *executionTree = SSQL_CreateExecutionTree(r->parseResult.output, s);
+    /*
     printf("exec tree done: %i\n", executionTree->operation);
     printf("left: %i\n", executionTree->left->argument.type);
     printf("left: %s\n", executionTree->left->argument.charData);
@@ -38,13 +38,13 @@ int main() {
         }
       }
     }
+    */
 
-    SSQL_ExecuteTree(executionTree, s);
+    // SSQL_ExecuteTree(executionTree, s);
 
     mpc_ast_delete(r->parseResult.output);
     SSQL_CleanUpExecutionTree(executionTree);
     SSQL_CleanUpSchema(s);
-    */
   } else {
     mpc_err_print(r->parseResult.error);
     mpc_err_delete(r->parseResult.error);

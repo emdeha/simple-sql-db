@@ -17,7 +17,8 @@ typedef enum {
   RELATION_DEFINITION,
   RELATION_VALUES,
   PROJECT_ATTRIBUTES,
-  CONDITION_EXPRESSION
+  CONDITION_EXPRESSION,
+  RELATIONS_LIST
 } ArgType;
 
 typedef struct {
@@ -34,10 +35,15 @@ typedef struct {
 } RelationRow;
 
 typedef enum {
+  INVALID = -1,
   AND,
+  OR,
   IN,
   LIKE,
-  EQ
+  EQ,
+  ATTRIBUTE,
+  PATTERN,
+  VALUE,
 } ConditionOperand;
 
 // TODO: Add handling for subqueries
@@ -45,12 +51,14 @@ typedef struct ConditionExpression {
   union {
     char *attributeName;
     char *pattern;
+    // TODO: Add separate value types
+    char *value;
   };
 
   ConditionOperand op;
 
-  ConditionExpression *left;
-  ConditionExpression *right;
+  struct ConditionExpression *left;
+  struct ConditionExpression *right;
 } ConditionExpression;
 
 typedef struct {
@@ -76,6 +84,11 @@ typedef struct {
     };
     // CONDITION_EXPRESSION
     ConditionExpression *conditionExpression;
+    // RELATIONS_LIST
+    struct {
+      Relation *relations;
+      size_t relationNum;
+    };
   };
 } Arg;
 

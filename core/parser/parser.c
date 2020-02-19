@@ -20,6 +20,8 @@ Parser* SSQL_ParserInit() {
   mpc_parser_t *Where = mpc_new("where");
   mpc_parser_t *Condition = mpc_new("condition");
   mpc_parser_t *ConditionBody = mpc_new("condition_body");
+  mpc_parser_t *AndConditionBody = mpc_new("and_condition_body");
+  mpc_parser_t *OrConditionBody = mpc_new("or_condition_body");
   mpc_parser_t *Attribute = mpc_new("attribute");
   mpc_parser_t *Relation = mpc_new("relation");
   mpc_parser_t *Pattern = mpc_new("pattern");
@@ -59,7 +61,16 @@ Parser* SSQL_ParserInit() {
     "                                                                       "
     " where : \"where\" <condition> ;                         "
     "                                                                       "
-    " condition : <condition_body> (\"and\" <condition_body>)* ;               "
+    // " condition : <condition_body> ((\"and\" | \"or\") <condition_body>)* ; "
+    " condition : <and_condition_body> "
+    "           | <or_condition_body> "
+    "           | <condition_body> ; "
+    " "
+    " and_condition_body : <condition_body> \"and\" "
+    "            (<and_condition_body> | <or_condition_body> | <condition_body>)+ ; "
+    " "
+    " or_condition_body : <condition_body> \"or\" "
+    "            (<and_condition_body> | <or_condition_body> | <condition_body>)+ ; "
     " "
     " condition_body: <attribute> \"in\" '(' <query> ')'             "
     "               | <attribute> '=' <value>                              "
@@ -71,11 +82,12 @@ Parser* SSQL_ParserInit() {
   SQL,
   Create, TableName, TableData, Column, Type, TypeChar,
   Insert, Values, Value,
-  Query, Select, From, Where, Condition, ConditionBody, Attribute, Relation, Pattern, NULL);
+  Query, Select, From, Where, Condition, ConditionBody, AndConditionBody, OrConditionBody,
+  Attribute, Relation, Pattern, NULL);
 
   Parser *p = malloc(sizeof(Parser));
   p->main = SQL;
-  p->parsers = malloc(18 * sizeof(mpc_parser_t*));
+  p->parsers = malloc(20 * sizeof(mpc_parser_t*));
   p->parsers[0] = Create;
   p->parsers[1] = TableName;
   p->parsers[2] = TableData;
@@ -91,11 +103,13 @@ Parser* SSQL_ParserInit() {
   p->parsers[12] = Where;
   p->parsers[13] = Condition;
   p->parsers[14] = ConditionBody;
-  p->parsers[15] = Attribute;
-  p->parsers[16] = Relation;
-  p->parsers[17] = Pattern;
+  p->parsers[15] = AndConditionBody;
+  p->parsers[16] = OrConditionBody;
+  p->parsers[17] = Attribute;
+  p->parsers[18] = Relation;
+  p->parsers[19] = Pattern;
 
-  p->parsersLength = 18;
+  p->parsersLength = 20;
   return p;
 }
 

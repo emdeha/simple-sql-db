@@ -287,27 +287,140 @@ void fillInsertIntoExecutionTree(
 /*
  * Sample tree:
  *
- * select a, b from c where a = 0;
+ * select a, b, c from a, b where a = 1 and b = 2 or c like '123';
  * >
  *   query|>
  *     string:1:1 'select'
  *     select|>
  *       attribute|regex:1:8 'a'
  *       char:1:9 ','
- *       select|attribute|regex:1:11 'b'
- *     string:1:13 'from'
- *     from|relation|regex:1:18 'c'
+ *       attribute|regex:1:11 'b'
+ *       char:1:12 ','
+ *       attribute|regex:1:14 'c'
+ *     string:1:16 'from'
+ *     from|>
+ *       relation|regex:1:21 'a'
+ *       char:1:22 ','
+ *       relation|regex:1:24 'b'
  *     where|>
- *       string:1:20 'where'
- *       condition|>
- *         attribute|regex:1:26 'a'
- *         char:1:28 '='
- *         attribute|regex:1:30 '0'
- *   char:1:31 ';'
+ *       string:1:26 'where'
+ *       condition|and_condition_body|>
+ *         condition_body|>
+ *           attribute|regex:1:32 'a'
+ *           char:1:34 '='
+ *           value|regex:1:36 '1'
+ *         string:1:38 'and'
+ *         or_condition_body|>
+ *           condition_body|>
+ *             attribute|regex:1:42 'b'
+ *             char:1:44 '='
+ *             value|regex:1:46 '2'
+ *           string:1:48 'or'
+ *           condition_body|>
+ *             attribute|regex:1:51 'c'
+ *             string:1:53 'like'
+ *             pattern|regex:1:58 ''123''
+ *   char:1:63 ';'
  */
+char** extractProjectAttributes(
+  mpc_ast_t *selectAST, size_t *attributeNum
+) {
+  *attributeNum = selectAST->children_num / 2 + 1;
+  char **attributes = malloc(sizeof(char*) * (*attributeNum));
+
+  for (int i = 0; i < selectAST->children_num; i++) {
+    if (strstr(selectAST->children[i]->tag, "attribute") != NULL) {
+      attributes[i / 2] = selectAST->children[i]->contents;
+    }
+  }
+
+  return attributes;
+}
+
+ConditionOperand determineConditionOperand(char *operand) {
+  if (strcmp(operand, "=") == 0) {
+    return EQ;
+  } else if (strcmp(operand, "like") == 0) {
+    return LIKE;
+  }
+
+  fprintf(stderr, "not implemented operand: %s\n", operand);
+  return INVALID;
+}
+
+ConditionExpression* extractConditionExpression(mpc_ast_t *whereAST) {
+  ConditionExpression *expression = malloc(sizeof(ConditionExpression));
+
+  mpc_ast_t *conditionBody = whereAST;
+  if (strstr(conditionBody->tag, "and_condition_body") != NULL) {
+    expression->op = AND;
+    printf("and condition\n");
+    // TODO: Check for NULL because this indicates errors
+    expression->left = extractConditionExpression(conditionBody->children[0]);
+    expression->right = extractConditionExpression(conditionBody->children[2]);
+  } else if (strstr(conditionBody->tag, "or_condition_body") != NULL) {
+    expression->op = OR;
+    printf("or condition\n");
+    // TODO: Check for NULL because this indicates errors
+    expression->left = extractConditionExpression(conditionBody->children[0]);
+    expression->right = extractConditionExpression(conditionBody->children[2]);
+  } else if (strstr(conditionBody->tag, "condition_body") != NULL) {
+    expression->op = determineConditionOperand(conditionBody->children[1]->contents);
+
+    expression->left = malloc(sizeof(ConditionExpression));
+    expression->left->op = ATTRIBUTE;
+    expression->left->attributeName = conditionBody->children[0]->contents;
+    printf("  attributeName %s\n", expression->left->attributeName);
+    expression->left->left = NULL;
+    expression->left->right = NULL;
+
+    expression->right = malloc(sizeof(ConditionExpression));
+    if (expression->op == EQ) {
+      expression->right->op = VALUE;
+      expression->right->value = conditionBody->children[2]->contents;
+      printf("  value %s\n", expression->right->value);
+    } else if (expression->op == LIKE) {
+      expression->right->op = PATTERN;
+      expression->right->pattern = conditionBody->children[2]->contents;
+      printf("  pattern %s\n", expression->right->pattern);
+    } else {
+      fprintf(stderr, "invalid condition op: %d\n", expression->op);
+      return NULL;
+    }
+    expression->right->left = NULL;
+    expression->right->right = NULL;
+  } else {
+    fprintf(stderr, "invalid condition body: %s\n", conditionBody->tag);
+    return NULL;
+  }
+
+  return expression;
+}
+
+Relation* extractRelations(mpc_ast_t *fromAST, size_t *relationNum, Schema *s) {
+  *relationNum = fromAST->children_num / 2 + 1;
+  Relation *relations = malloc(sizeof(Relation) * (*relationNum));
+
+  printf("relations\n");
+
+  for (int i = 0; i < fromAST->children_num; i++) {
+    if (strstr(fromAST->children[i]->tag, "relation") != NULL) {
+      Relation *relation = findRelationByName(s, fromAST->children[i]->contents);
+      if (relation == NULL) {
+        fprintf(stderr, "no relation with name %s\n", fromAST->children[i]->contents);
+        return NULL;
+      }
+
+      relations[i / 2] = *relation;
+      printf("  relation %s\n", relations[i / 2].relationName);
+    }
+  }
+
+  return relations;
+}
 
 void fillQueryExecutionTree(
-  ExecutionTree *execTree, mpc_ast_t **ast, mpc_ast_trav_t **trav
+  ExecutionTree *execTree, mpc_ast_t **ast, Schema *s
 ) {
   mpc_ast_t *selectChild = NULL;
   mpc_ast_t *fromChild = NULL;
@@ -333,8 +446,12 @@ void fillQueryExecutionTree(
   execTree->left->isOperation = 0;
   execTree->left->argument.type = PROJECT_ATTRIBUTES;
   execTree->left->argument.attributesData =
-    extractProjectAttributes(selectChild, &execTree->left->argument.attributesNum);
+    extractProjectAttributes(selectChild, &execTree->left->argument.attributeNum);
   execTree->left->right = NULL;
+  printf("extracted attributesData\n");
+  for (size_t i = 0; i < execTree->left->argument.attributeNum; i++) {
+    printf("  attrib %lu is %s\n", i, execTree->left->argument.attributesData[i]);
+  }
 
   execTree->left->left = malloc(sizeof(ExecutionTree));
   execTree->left->left->isOperation = 1;
@@ -344,13 +461,15 @@ void fillQueryExecutionTree(
   execTree->left->left->left = malloc(sizeof(ExecutionTree));
   execTree->left->left->left->isOperation = 0;
   execTree->left->left->left->argument.type = CONDITION_EXPRESSION;
-  execTree->left->left->left->argument.conditionExpression = extractConditionExpression(whereChild);
+  execTree->left->left->left->argument.conditionExpression =
+    extractConditionExpression(whereChild->children[1]);
   execTree->left->left->left->right = NULL;
 
   execTree->left->left->left->left = malloc(sizeof(ExecutionTree));
   execTree->left->left->left->left->isOperation = 0;
-  execTree->left->left->left->left->argument.type = RELATION_NAME;
-  execTree->left->left->left->left->argument.charData = extractRelation(fromChild);
+  execTree->left->left->left->left->argument.type = RELATIONS_LIST;
+  execTree->left->left->left->left->argument.relations =
+    extractRelations(fromChild, &execTree->left->left->left->left->argument.relationNum, s);
   execTree->left->left->left->left->right = NULL;
   execTree->left->left->left->left->left = NULL;
 }
@@ -383,7 +502,7 @@ ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast, Schema *s) {
       }
       ast_next = mpc_ast_traverse_next(&trav);
     } else if (strcmp(ast_next->tag, "query|>") == 0) {
-      fillQueryExecutionTree(execTree, &ast_next, &trav);
+      fillQueryExecutionTree(execTree, &ast_next, s);
       if (ast_next == NULL) {
         break;
       }
