@@ -403,6 +403,18 @@ Relation* extractRelations(mpc_ast_t *fromAST, size_t *relationNum, Schema *s) {
 
   printf("relations\n");
 
+  if (fromAST->children_num == 0) {
+    Relation *relation = findRelationByName(s, fromAST->contents);
+    if (relation == NULL) {
+      fprintf(stderr, "no relation with name %s\n", fromAST->contents);
+      return NULL;
+    }
+
+    relations[0] = *relation;
+
+    return relations;
+  }
+
   for (int i = 0; i < fromAST->children_num; i++) {
     if (strstr(fromAST->children[i]->tag, "relation") != NULL) {
       Relation *relation = findRelationByName(s, fromAST->children[i]->contents);
@@ -517,6 +529,17 @@ ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast, Schema *s) {
   return execTree;
 }
 
+void __CleanUpConditionExpression(ConditionExpression *conditionExpression) {
+  if (conditionExpression == NULL) {
+    return;
+  }
+
+  __CleanUpConditionExpression(conditionExpression->left);
+  __CleanUpConditionExpression(conditionExpression->right);
+
+  free(conditionExpression);
+}
+
 void SSQL_CleanUpExecutionTree(ExecutionTree *execTree) {
   if (execTree == NULL) {
     return;
@@ -544,6 +567,18 @@ void SSQL_CleanUpExecutionTree(ExecutionTree *execTree) {
           free(arg.relationRowData[rowIdx].values);
         }
         free(arg.relationRowData);
+        break;
+      }
+      case PROJECT_ATTRIBUTES: {
+        free(execTree->argument.attributesData);
+        break;
+      }
+      case CONDITION_EXPRESSION: {
+        __CleanUpConditionExpression(execTree->argument.conditionExpression);
+        break;
+      }
+      case RELATIONS_LIST: {
+        free(execTree->argument.relations);
         break;
       }
       default:
