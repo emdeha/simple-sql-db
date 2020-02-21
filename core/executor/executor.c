@@ -84,6 +84,31 @@ void executeInsertInto(ExecutionTree *execTree) {
   fclose(fp);
 }
 
+void executeProject(ExecutionTree *execTree) {
+  FILE *fp;
+
+  if ((fp = fopen("./db-data/relations", "r")) == NULL) {
+    fprintf(stderr, "can't open relations file");
+    return;
+  }
+
+  size_t fromRelationsNum = 0;
+  Relation *fromRelations = getFromRelations(execTree, &fromRelationsNum);
+  RelationRow *result = NULL;
+
+  int readResult = 0;
+  char *relationName = getString(fp, &readResult);
+  while (readResult > 0) {
+    // 1. if relationName is not in fromRelations
+    //   1.1. skip it in the file
+    // 2. if relationName is in fromRelations
+    //   2.1. for each row
+    //     2.1.1. extract only the values in SELECT
+    //     2.1.2. add it to result if it matches the criteria
+    //     2.1.3. skip it in the file, otherwise
+  }
+}
+
 void SSQL_ExecuteTree(ExecutionTree *execTree, Schema *schema) {
   switch (execTree->operation) {
     case CREATE_TABLE:
@@ -91,6 +116,9 @@ void SSQL_ExecuteTree(ExecutionTree *execTree, Schema *schema) {
       break;
     case INSERT_INTO:
       executeInsertInto(execTree);
+      break;
+    case PROJECT:
+      executeProject(execTree, schema);
       break;
     default:
       fprintf(stderr, "Operation not implemented: %i\n", execTree->operation);
