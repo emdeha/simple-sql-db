@@ -3,18 +3,27 @@
 Type getType(mpc_ast_t *astType) {
   Type t;
 
-  if (astType->children_num == 0) {
+  mpc_ast_t *childType = astType->children_num == 0
+    ? astType
+    : astType->children[0];
+
+  if (strcmp(childType->contents, "integer") == 0) {
     t.name = integer_t;
     t.size = 0;
-  } else {
+  } else if (strcmp(childType->contents, "char(") == 0) {
     t.name = char_t;
     t.size = atoi(astType->children[1]->contents);
+  } else {
+    t.name = invalid_t;
+    t.size = 0;
   }
 
   return t;
 }
 
 RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns, int *columnNum) {
+  if (astRelationColumns->children_num == 0) return NULL;
+
   RelationColumn *columns =
     malloc(sizeof(RelationColumn) * (astRelationColumns->children_num / 2));
 
@@ -26,7 +35,15 @@ RelationColumn* extractRelationColumns(mpc_ast_t *astRelationColumns, int *colum
     if (strcmp(column->contents, ")") == 0) break;
 
     columns[j].attribute = column->children[0]->contents;
-    columns[j].type = getType(column->children[1]);
+    Type t = getType(column->children[1]);
+
+    if (t.name == invalid_t) {
+      columnNum = 0;
+      free(columns);
+      return NULL;
+    }
+
+    columns[j].type = t;
     j++;
   }
 

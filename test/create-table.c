@@ -3,6 +3,8 @@
 #include "../core/execution-tree/execution-tree_pi.h"
 
 void test_getType() {
+  printf("\ntest_getType\n\n");
+
   mpc_ast_t *ast = mpc_ast_new("type|string", "integer");
 
   ok(getType(ast).name == integer_t && getType(ast).size == 0);
@@ -20,6 +22,8 @@ void test_getType() {
 }
 
 void test_extractOneRelationColumn() {
+  printf("\ntest_extractOneRelationColumn\n\n");
+
   mpc_ast_t *ast = mpc_ast_new("table_data|>", "");
   ast = mpc_ast_add_child(ast, mpc_ast_new("char", "("));
 
@@ -44,6 +48,8 @@ void test_extractOneRelationColumn() {
 }
 
 void test_extractTwoRelationColumns() {
+  printf("\ntest_extractTwoRelationColumns\n\n");
+
   mpc_ast_t *ast = mpc_ast_new("table_data|>", "");
   ast = mpc_ast_add_child(ast, mpc_ast_new("char", "("));
 
@@ -83,10 +89,50 @@ void test_extractTwoRelationColumns() {
   free(columns);
 }
 
+void test_extractZeroRelationColumns() {
+  printf("\ntest_extractZeroRelationColumns\n\n");
+
+  mpc_ast_t *ast = mpc_ast_new("table_data|>", "");
+
+  int columnNum = 0;
+  RelationColumn *columns = extractRelationColumns(ast, &columnNum);
+
+  ok(columnNum == 0);
+  ok(columns == NULL);
+
+  mpc_ast_delete(ast);
+  free(columns);
+}
+
+void test_extractRelationColumnWithInvalidType() {
+  printf("\ntest_extractRelationColumnWithInvalidType\n\n");
+
+  mpc_ast_t *ast = mpc_ast_new("table_data|>", "");
+  ast = mpc_ast_add_child(ast, mpc_ast_new("char", "("));
+
+  mpc_ast_t *column = mpc_ast_new("column|>", "");
+  column = mpc_ast_add_child(column, mpc_ast_new("attribute|regex", "a"));
+  column = mpc_ast_add_child(column, mpc_ast_new("type|string", "invalid"));
+  ast = mpc_ast_add_child(ast, column);
+
+  ast = mpc_ast_add_child(ast, mpc_ast_new("char", ","));
+  ast = mpc_ast_add_child(ast, mpc_ast_new("char", ")"));
+
+  int columnNum = 0;
+  RelationColumn *columns = extractRelationColumns(ast, &columnNum);
+
+  ok(columnNum == 0);
+  ok(columns == NULL);
+
+  mpc_ast_delete(ast);
+  free(columns);
+}
+
 void test_extractRelationColumns() {
   test_extractOneRelationColumn();
   test_extractTwoRelationColumns();
-  // test_extractZeroRelationColumns();
+  test_extractZeroRelationColumns();
+  test_extractRelationColumnWithInvalidType();
 }
 
 /*

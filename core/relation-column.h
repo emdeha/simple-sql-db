@@ -3,7 +3,11 @@
 
 #include <stdlib.h>
 
-typedef enum { integer_t, char_t } TypeName;
+typedef enum {
+  integer_t,
+  char_t,
+  invalid_t = -1
+} TypeName;
 
 typedef struct {
   TypeName name;
