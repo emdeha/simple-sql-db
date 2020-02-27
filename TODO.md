@@ -1,11 +1,13 @@
 # Immediate actions
 
-1. Implement SELECT ... FROM ... WHERE
+0. Provide tests
+1. Store rows sequentially in separate files for easier query processing
 2. Refactor
   * Provide sane error handling
   * Provide utility functions
   * Check for stupidity
-3. Write about the progress so far, so people can learn from it
+3. Implement SELECT ... FROM ... WHERE
+4. Write about the progress so far, so people can learn from it
 
 # Next steps
 

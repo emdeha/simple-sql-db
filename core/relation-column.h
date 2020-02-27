@@ -3,8 +3,10 @@
 
 #include <stdlib.h>
 
+typedef enum { integer_t, char_t } TypeName;
+
 typedef struct {
-  enum TypeName { integer_t, char_t } name;
+  TypeName name;
   size_t size;
 } Type;
 

@@ -4,9 +4,6 @@
 #include "./core/executor/executor.h"
 #include "./core/loader/loader.h"
 
-/*
- * Main
- */
 int main() {
   Parser *p = SSQL_ParserInit();
 

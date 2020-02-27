@@ -84,6 +84,7 @@ void executeInsertInto(ExecutionTree *execTree) {
   fclose(fp);
 }
 
+/*
 void executeProject(ExecutionTree *execTree) {
   FILE *fp;
 
@@ -108,6 +109,7 @@ void executeProject(ExecutionTree *execTree) {
     //     2.1.3. skip it in the file, otherwise
   }
 }
+*/
 
 void SSQL_ExecuteTree(ExecutionTree *execTree, Schema *schema) {
   switch (execTree->operation) {
@@ -118,7 +120,7 @@ void SSQL_ExecuteTree(ExecutionTree *execTree, Schema *schema) {
       executeInsertInto(execTree);
       break;
     case PROJECT:
-      executeProject(execTree, schema);
+      // executeProject(execTree, schema);
       break;
     default:
       fprintf(stderr, "Operation not implemented: %i\n", execTree->operation);
