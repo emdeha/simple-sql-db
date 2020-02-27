@@ -529,13 +529,13 @@ ExecutionTree* SSQL_CreateExecutionTree(mpc_ast_t *ast, Schema *s) {
   return execTree;
 }
 
-void __CleanUpConditionExpression(ConditionExpression *conditionExpression) {
+void cleanUpConditionExpression(ConditionExpression *conditionExpression) {
   if (conditionExpression == NULL) {
     return;
   }
 
-  __CleanUpConditionExpression(conditionExpression->left);
-  __CleanUpConditionExpression(conditionExpression->right);
+  cleanUpConditionExpression(conditionExpression->left);
+  cleanUpConditionExpression(conditionExpression->right);
 
   free(conditionExpression);
 }
@@ -574,7 +574,7 @@ void SSQL_CleanUpExecutionTree(ExecutionTree *execTree) {
         break;
       }
       case CONDITION_EXPRESSION: {
-        __CleanUpConditionExpression(execTree->argument.conditionExpression);
+        cleanUpConditionExpression(execTree->argument.conditionExpression);
         break;
       }
       case RELATIONS_LIST: {
